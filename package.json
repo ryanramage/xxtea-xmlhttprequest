@@ -1,0 +1,31 @@
+{
+  "name": "xxtea-xmlhttprequest",
+  "version": "0.0.0",
+  "description": "Browser http get, decrypting the resource as a xxtea stream ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "concat-stream": "^1.4.3",  
+    "bops": "^0.1.1",
+    "filereader-stream": "^0.1.0",
+    "xxtea-stream": ">=0.0.3"
+  },
+  "devDependencies": {
+    "browserify": "^4.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryanramage/xxtea-xmlhttprequest.git"
+  },
+  "keywords": [
+    "xxtea"
+  ],
+  "author": "Ryan Ramage",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ryanramage/xxtea-xmlhttprequest/issues"
+  },
+  "homepage": "https://github.com/ryanramage/xxtea-xmlhttprequest"
+}
