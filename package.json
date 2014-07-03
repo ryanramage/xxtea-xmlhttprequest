@@ -1,6 +1,6 @@
 {
   "name": "xxtea-xmlhttprequest",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Browser http get, decrypting the resource as a xxtea stream ",
   "main": "index.js",
   "browser": "./browser.js",
