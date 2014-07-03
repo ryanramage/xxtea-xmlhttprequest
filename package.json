@@ -3,17 +3,21 @@
   "version": "0.0.0",
   "description": "Browser http get, decrypting the resource as a xxtea stream ",
   "main": "index.js",
+  "browser": "./browser.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./node_modules/.bin/tape tests/*.js",
+    "bundle": "./node_modules/.bin/browserify browser.js  --standalone xxtea  > browser.min.js"
   },
   "dependencies": {
-    "concat-stream": "^1.4.3",  
     "bops": "^0.1.1",
+    "concat-stream": "^1.4.3",
     "filereader-stream": "^0.1.0",
+    "request": "^2.36.0",
     "xxtea-stream": ">=0.0.3"
   },
   "devDependencies": {
-    "browserify": "^4.2.0"
+    "browserify": "^4.2.0",
+    "tape": "^2.13.3"
   },
   "repository": {
     "type": "git",

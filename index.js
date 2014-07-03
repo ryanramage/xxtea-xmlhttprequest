@@ -1,6 +1,6 @@
-var xxtea = require('xxtea-stream'),
+var request = require('request'),
+    xxtea = require('xxtea-stream'),
     concat = require('concat-stream'),
-    createReadStream = require('filereader-stream'),
     bops = require('bops');
 
 module.exports = function(url, pass, as_string, cb){
@@ -11,17 +11,11 @@ module.exports = function(url, pass, as_string, cb){
     as_string = false;
   }
 
-  var oReq = new XMLHttpRequest();
-  oReq.open("GET", url, true);
-  oReq.responseType = "blob";
+  request(url)
+    .pipe(new xxtea.Decrypt(bops.from(pass, 'base64')))
+    .pipe(concat(function(contents) {
+      if (as_string) return cb(null, bops.to(contents));
+      else return cb(null, contents);
+    }))
 
-  oReq.onload = function (oEvent) {
-    createReadStream(oReq.response)
-      .pipe(new xxtea.Decrypt(bops.from(pass, 'base64')))
-      .pipe(concat(function(contents) {
-        if (as_string) return cb(null, bops.to(contents));
-        else return cb(null, contents);
-      }))
-  };
-  oReq.send(null);
 }
