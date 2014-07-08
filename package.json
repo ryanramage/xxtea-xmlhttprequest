@@ -6,13 +6,15 @@
   "browser": "./browser.js",
   "scripts": {
     "test": "./node_modules/.bin/tape tests/*.js",
-    "bundle": "./node_modules/.bin/browserify browser.js  --standalone xxtea  > browser.min.js"
+    "bundle": "./node_modules/.bin/browserify browser.js  --standalone xxtea  > browser.min.js",
+    "test-bundle": "./node_modules/.bin/browserify tests/launcher.js > tests/browser.js"
   },
   "dependencies": {
     "bops": "^0.1.1",
     "concat-stream": "^1.4.3",
     "filereader-stream": "^0.1.0",
     "request": "^2.36.0",
+    "streamifier": "^0.1.0",
     "xxtea-stream": ">=0.0.3"
   },
   "devDependencies": {
