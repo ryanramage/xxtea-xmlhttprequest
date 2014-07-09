@@ -1,16 +1,34 @@
-!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.xxtea=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
-var xxtea = _dereq_('xxtea-stream'),
-    concat = _dereq_('concat-stream'),
-    createReadStream = _dereq_('filereader-stream'),
-    bops = _dereq_('bops');
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var xxtea = require('xxtea-stream'),
+    xhr = require('binary-xhr'),
+    streamifier = require('streamifier'),
+    concat = require('concat-stream'),
+    createReadStream = require('filereader-stream'),
+    bops = require('bops');
 
-module.exports = function(url, pass, as_string, cb){
-
+module.exports = function(url, pass, options, cb) {
   // handle a call signature of function(url, pass, cb)
   if (typeof as_string === 'function') {
     cb = as_string;
-    as_string = false;
+    options = {};
   }
+  if (options.blob) asBlob(url, pass, options, cb);
+  else asArray(url, pass, options, cb)
+}
+
+function asArray(url, pass, options, cb) {
+  xhr(url, function(err, data){
+    streamifier.createReadStream(new Uint8Array(data))
+      .pipe(new xxtea.Decrypt(bops.from(pass, 'base64')))
+      .pipe(concat(function(contents) {
+        if (options.return_string) return cb(null, bops.to(contents));
+        else return cb(null, contents);
+      }))    
+  })
+
+}
+
+function asBlob(url, pass, options, cb) {
 
   var oReq = new XMLHttpRequest();
   oReq.open("GET", url, true);
@@ -20,26 +38,85 @@ module.exports = function(url, pass, as_string, cb){
     createReadStream(oReq.response)
       .pipe(new xxtea.Decrypt(bops.from(pass, 'base64')))
       .pipe(concat(function(contents) {
-        if (as_string) return cb(null, bops.to(contents));
+        if (options.return_string) return cb(null, bops.to(contents));
         else return cb(null, contents);
       }))
   };
   oReq.send(null);
 }
-},{"bops":2,"concat-stream":38,"filereader-stream":50,"xxtea-stream":52}],2:[function(_dereq_,module,exports){
+},{"binary-xhr":2,"bops":4,"concat-stream":40,"filereader-stream":52,"streamifier":54,"xxtea-stream":55}],2:[function(require,module,exports){
+var inherits = require('inherits')
+
+module.exports = function(url, cb) {
+  return new BinaryXHR(url, cb)
+}
+
+function BinaryXHR(url, cb) {
+  var self = this
+  var xhr = new XMLHttpRequest()
+  this.xhr = xhr
+  xhr.open("GET", url, true)
+  xhr.responseType = 'arraybuffer'
+  xhr.onreadystatechange = function () {
+    if (self.xhr.readyState === 4) {
+      if (self.xhr.status !== 200) {
+        cb(self.xhr.status, self.xhr.response);
+      } else if (self.xhr.response && self.xhr.response.byteLength > 0) {
+        cb(false, self.xhr.response)
+      } else {
+        if (self.xhr.response && self.xhr.response.byteLength === 0) return cb('response length 0')
+        cb('no response')
+      }
+    }
+  }
+  xhr.send(null)
+}
+
+},{"inherits":3}],3:[function(require,module,exports){
+module.exports = inherits
+
+function inherits (c, p, proto) {
+  proto = proto || {}
+  var e = {}
+  ;[c.prototype, proto].forEach(function (s) {
+    Object.getOwnPropertyNames(s).forEach(function (k) {
+      e[k] = Object.getOwnPropertyDescriptor(s, k)
+    })
+  })
+  c.prototype = Object.create(p.prototype, e)
+  c.super = p
+}
+
+//function Child () {
+//  Child.super.call(this)
+//  console.error([this
+//                ,this.constructor
+//                ,this.constructor === Child
+//                ,this.constructor.super === Parent
+//                ,Object.getPrototypeOf(this) === Child.prototype
+//                ,Object.getPrototypeOf(Object.getPrototypeOf(this))
+//                 === Parent.prototype
+//                ,this instanceof Child
+//                ,this instanceof Parent])
+//}
+//function Parent () {}
+//inherits(Child, Parent)
+//new Child
+
+},{}],4:[function(require,module,exports){
 var proto = {}
 module.exports = proto
 
-proto.from = _dereq_('./from.js')
-proto.to = _dereq_('./to.js')
-proto.is = _dereq_('./is.js')
-proto.subarray = _dereq_('./subarray.js')
-proto.join = _dereq_('./join.js')
-proto.copy = _dereq_('./copy.js')
-proto.create = _dereq_('./create.js')
+proto.from = require('./from.js')
+proto.to = require('./to.js')
+proto.is = require('./is.js')
+proto.subarray = require('./subarray.js')
+proto.join = require('./join.js')
+proto.copy = require('./copy.js')
+proto.create = require('./create.js')
 
-mix(_dereq_('./read.js'), proto)
-mix(_dereq_('./write.js'), proto)
+mix(require('./read.js'), proto)
+mix(require('./write.js'), proto)
 
 function mix(from, into) {
   for(var key in from) {
@@ -47,7 +124,7 @@ function mix(from, into) {
   }
 }
 
-},{"./copy.js":5,"./create.js":6,"./from.js":7,"./is.js":8,"./join.js":9,"./read.js":11,"./subarray.js":12,"./to.js":13,"./write.js":14}],3:[function(_dereq_,module,exports){
+},{"./copy.js":7,"./create.js":8,"./from.js":9,"./is.js":10,"./join.js":11,"./read.js":13,"./subarray.js":14,"./to.js":15,"./write.js":16}],5:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -133,7 +210,7 @@ function mix(from, into) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],4:[function(_dereq_,module,exports){
+},{}],6:[function(require,module,exports){
 module.exports = to_utf8
 
 var out = []
@@ -208,7 +285,7 @@ function reduced(list) {
   return out
 }
 
-},{}],5:[function(_dereq_,module,exports){
+},{}],7:[function(require,module,exports){
 module.exports = copy
 
 var slice = [].slice
@@ -262,15 +339,15 @@ function slow_copy(from, to, j, i, jend) {
   }
 }
 
-},{}],6:[function(_dereq_,module,exports){
+},{}],8:[function(require,module,exports){
 module.exports = function(size) {
   return new Uint8Array(size)
 }
 
-},{}],7:[function(_dereq_,module,exports){
+},{}],9:[function(require,module,exports){
 module.exports = from
 
-var base64 = _dereq_('base64-js')
+var base64 = require('base64-js')
 
 var decoders = {
     hex: from_hex
@@ -403,13 +480,13 @@ function from_base64(str) {
   return new Uint8Array(base64.toByteArray(str)) 
 }
 
-},{"base64-js":3}],8:[function(_dereq_,module,exports){
+},{"base64-js":5}],10:[function(require,module,exports){
 
 module.exports = function(buffer) {
   return buffer instanceof Uint8Array;
 }
 
-},{}],9:[function(_dereq_,module,exports){
+},{}],11:[function(require,module,exports){
 module.exports = join
 
 function join(targets, hint) {
@@ -447,7 +524,7 @@ function get_length(targets) {
   return size
 }
 
-},{}],10:[function(_dereq_,module,exports){
+},{}],12:[function(require,module,exports){
 var proto
   , map
 
@@ -469,7 +546,7 @@ function get(target) {
   return out
 }
 
-},{}],11:[function(_dereq_,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports = {
     readUInt8:      read_uint8
   , readInt8:       read_int8
@@ -487,7 +564,7 @@ module.exports = {
   , readDoubleBE:   read_double_be
 }
 
-var map = _dereq_('./mapped.js')
+var map = require('./mapped.js')
 
 function read_uint8(target, at) {
   return target[at]
@@ -558,18 +635,18 @@ function read_double_be(target, at) {
   return dv.getFloat64(at + target.byteOffset, false)
 }
 
-},{"./mapped.js":10}],12:[function(_dereq_,module,exports){
+},{"./mapped.js":12}],14:[function(require,module,exports){
 module.exports = subarray
 
 function subarray(buf, from, to) {
   return buf.subarray(from || 0, to || buf.length)
 }
 
-},{}],13:[function(_dereq_,module,exports){
+},{}],15:[function(require,module,exports){
 module.exports = to
 
-var base64 = _dereq_('base64-js')
-  , toutf8 = _dereq_('to-utf8')
+var base64 = require('base64-js')
+  , toutf8 = require('to-utf8')
 
 var encoders = {
     hex: to_hex
@@ -603,7 +680,7 @@ function to_base64(buf) {
 }
 
 
-},{"base64-js":3,"to-utf8":4}],14:[function(_dereq_,module,exports){
+},{"base64-js":5,"to-utf8":6}],16:[function(require,module,exports){
 module.exports = {
     writeUInt8:      write_uint8
   , writeInt8:       write_int8
@@ -621,7 +698,7 @@ module.exports = {
   , writeDoubleBE:   write_double_be
 }
 
-var map = _dereq_('./mapped.js')
+var map = require('./mapped.js')
 
 function write_uint8(target, value, at) {
   return target[at] = value
@@ -691,9 +768,9 @@ function write_double_be(target, value, at) {
   return dv.setFloat64(at + target.byteOffset, value, false)
 }
 
-},{"./mapped.js":10}],15:[function(_dereq_,module,exports){
+},{"./mapped.js":12}],17:[function(require,module,exports){
 
-},{}],16:[function(_dereq_,module,exports){
+},{}],18:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -701,8 +778,8 @@ function write_double_be(target, value, at) {
  * @license  MIT
  */
 
-var base64 = _dereq_('base64-js')
-var ieee754 = _dereq_('ieee754')
+var base64 = require('base64-js')
+var ieee754 = require('ieee754')
 
 exports.Buffer = Buffer
 exports.SlowBuffer = Buffer
@@ -1851,7 +1928,7 @@ function assert (test, message) {
   if (!test) throw new Error(message || 'Failed assertion')
 }
 
-},{"base64-js":17,"ieee754":18}],17:[function(_dereq_,module,exports){
+},{"base64-js":19,"ieee754":20}],19:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -1973,7 +2050,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],18:[function(_dereq_,module,exports){
+},{}],20:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -2059,7 +2136,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],19:[function(_dereq_,module,exports){
+},{}],21:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -2364,7 +2441,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],20:[function(_dereq_,module,exports){
+},{}],22:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -2389,7 +2466,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],21:[function(_dereq_,module,exports){
+},{}],23:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -2454,10 +2531,10 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],22:[function(_dereq_,module,exports){
-module.exports = _dereq_("./lib/_stream_duplex.js")
+},{}],24:[function(require,module,exports){
+module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":23}],23:[function(_dereq_,module,exports){
+},{"./lib/_stream_duplex.js":25}],25:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -2497,12 +2574,12 @@ var objectKeys = Object.keys || function (obj) {
 
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
-var Readable = _dereq_('./_stream_readable');
-var Writable = _dereq_('./_stream_writable');
+var Readable = require('./_stream_readable');
+var Writable = require('./_stream_writable');
 
 util.inherits(Duplex, Readable);
 
@@ -2549,8 +2626,8 @@ function forEach (xs, f) {
   }
 }
 
-}).call(this,_dereq_("FWaASH"))
-},{"./_stream_readable":25,"./_stream_writable":27,"FWaASH":21,"core-util-is":28,"inherits":20}],24:[function(_dereq_,module,exports){
+}).call(this,require("FWaASH"))
+},{"./_stream_readable":27,"./_stream_writable":29,"FWaASH":23,"core-util-is":30,"inherits":22}],26:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -2578,11 +2655,11 @@ function forEach (xs, f) {
 
 module.exports = PassThrough;
 
-var Transform = _dereq_('./_stream_transform');
+var Transform = require('./_stream_transform');
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 util.inherits(PassThrough, Transform);
@@ -2598,7 +2675,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./_stream_transform":26,"core-util-is":28,"inherits":20}],25:[function(_dereq_,module,exports){
+},{"./_stream_transform":28,"core-util-is":30,"inherits":22}],27:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -2624,17 +2701,17 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = _dereq_('isarray');
+var isArray = require('isarray');
 /*</replacement>*/
 
 
 /*<replacement>*/
-var Buffer = _dereq_('buffer').Buffer;
+var Buffer = require('buffer').Buffer;
 /*</replacement>*/
 
 Readable.ReadableState = ReadableState;
 
-var EE = _dereq_('events').EventEmitter;
+var EE = require('events').EventEmitter;
 
 /*<replacement>*/
 if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
@@ -2642,11 +2719,11 @@ if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
 };
 /*</replacement>*/
 
-var Stream = _dereq_('stream');
+var Stream = require('stream');
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 var StringDecoder;
@@ -2715,7 +2792,7 @@ function ReadableState(options, stream) {
   this.encoding = null;
   if (options.encoding) {
     if (!StringDecoder)
-      StringDecoder = _dereq_('string_decoder/').StringDecoder;
+      StringDecoder = require('string_decoder/').StringDecoder;
     this.decoder = new StringDecoder(options.encoding);
     this.encoding = options.encoding;
   }
@@ -2816,7 +2893,7 @@ function needMoreData(state) {
 // backwards compatibility.
 Readable.prototype.setEncoding = function(enc) {
   if (!StringDecoder)
-    StringDecoder = _dereq_('string_decoder/').StringDecoder;
+    StringDecoder = require('string_decoder/').StringDecoder;
   this._readableState.decoder = new StringDecoder(enc);
   this._readableState.encoding = enc;
 };
@@ -3560,8 +3637,8 @@ function indexOf (xs, x) {
   return -1;
 }
 
-}).call(this,_dereq_("FWaASH"))
-},{"FWaASH":21,"buffer":16,"core-util-is":28,"events":19,"inherits":20,"isarray":29,"stream":35,"string_decoder/":30}],26:[function(_dereq_,module,exports){
+}).call(this,require("FWaASH"))
+},{"FWaASH":23,"buffer":18,"core-util-is":30,"events":21,"inherits":22,"isarray":31,"stream":37,"string_decoder/":32}],28:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -3628,11 +3705,11 @@ function indexOf (xs, x) {
 
 module.exports = Transform;
 
-var Duplex = _dereq_('./_stream_duplex');
+var Duplex = require('./_stream_duplex');
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 util.inherits(Transform, Duplex);
@@ -3773,7 +3850,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":23,"core-util-is":28,"inherits":20}],27:[function(_dereq_,module,exports){
+},{"./_stream_duplex":25,"core-util-is":30,"inherits":22}],29:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -3803,19 +3880,19 @@ function done(stream, er) {
 module.exports = Writable;
 
 /*<replacement>*/
-var Buffer = _dereq_('buffer').Buffer;
+var Buffer = require('buffer').Buffer;
 /*</replacement>*/
 
 Writable.WritableState = WritableState;
 
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 
-var Stream = _dereq_('stream');
+var Stream = require('stream');
 
 util.inherits(Writable, Stream);
 
@@ -3897,7 +3974,7 @@ function WritableState(options, stream) {
 }
 
 function Writable(options) {
-  var Duplex = _dereq_('./_stream_duplex');
+  var Duplex = require('./_stream_duplex');
 
   // Writable ctor is applied to Duplexes, though they're not
   // instanceof Writable, they're instanceof Readable.
@@ -4163,8 +4240,8 @@ function endWritable(stream, state, cb) {
   state.ended = true;
 }
 
-}).call(this,_dereq_("FWaASH"))
-},{"./_stream_duplex":23,"FWaASH":21,"buffer":16,"core-util-is":28,"inherits":20,"stream":35}],28:[function(_dereq_,module,exports){
+}).call(this,require("FWaASH"))
+},{"./_stream_duplex":25,"FWaASH":23,"buffer":18,"core-util-is":30,"inherits":22,"stream":37}],30:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -4273,13 +4350,13 @@ exports.isBuffer = isBuffer;
 function objectToString(o) {
   return Object.prototype.toString.call(o);
 }
-}).call(this,_dereq_("buffer").Buffer)
-},{"buffer":16}],29:[function(_dereq_,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"buffer":18}],31:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],30:[function(_dereq_,module,exports){
+},{}],32:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4301,7 +4378,7 @@ module.exports = Array.isArray || function (arr) {
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-var Buffer = _dereq_('buffer').Buffer;
+var Buffer = require('buffer').Buffer;
 
 var isBufferEncoding = Buffer.isEncoding
   || function(encoding) {
@@ -4481,24 +4558,24 @@ function base64DetectIncompleteChar(buffer) {
   return incomplete;
 }
 
-},{"buffer":16}],31:[function(_dereq_,module,exports){
-module.exports = _dereq_("./lib/_stream_passthrough.js")
+},{"buffer":18}],33:[function(require,module,exports){
+module.exports = require("./lib/_stream_passthrough.js")
 
-},{"./lib/_stream_passthrough.js":24}],32:[function(_dereq_,module,exports){
-exports = module.exports = _dereq_('./lib/_stream_readable.js');
+},{"./lib/_stream_passthrough.js":26}],34:[function(require,module,exports){
+exports = module.exports = require('./lib/_stream_readable.js');
 exports.Readable = exports;
-exports.Writable = _dereq_('./lib/_stream_writable.js');
-exports.Duplex = _dereq_('./lib/_stream_duplex.js');
-exports.Transform = _dereq_('./lib/_stream_transform.js');
-exports.PassThrough = _dereq_('./lib/_stream_passthrough.js');
+exports.Writable = require('./lib/_stream_writable.js');
+exports.Duplex = require('./lib/_stream_duplex.js');
+exports.Transform = require('./lib/_stream_transform.js');
+exports.PassThrough = require('./lib/_stream_passthrough.js');
 
-},{"./lib/_stream_duplex.js":23,"./lib/_stream_passthrough.js":24,"./lib/_stream_readable.js":25,"./lib/_stream_transform.js":26,"./lib/_stream_writable.js":27}],33:[function(_dereq_,module,exports){
-module.exports = _dereq_("./lib/_stream_transform.js")
+},{"./lib/_stream_duplex.js":25,"./lib/_stream_passthrough.js":26,"./lib/_stream_readable.js":27,"./lib/_stream_transform.js":28,"./lib/_stream_writable.js":29}],35:[function(require,module,exports){
+module.exports = require("./lib/_stream_transform.js")
 
-},{"./lib/_stream_transform.js":26}],34:[function(_dereq_,module,exports){
-module.exports = _dereq_("./lib/_stream_writable.js")
+},{"./lib/_stream_transform.js":28}],36:[function(require,module,exports){
+module.exports = require("./lib/_stream_writable.js")
 
-},{"./lib/_stream_writable.js":27}],35:[function(_dereq_,module,exports){
+},{"./lib/_stream_writable.js":29}],37:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4522,15 +4599,15 @@ module.exports = _dereq_("./lib/_stream_writable.js")
 
 module.exports = Stream;
 
-var EE = _dereq_('events').EventEmitter;
-var inherits = _dereq_('inherits');
+var EE = require('events').EventEmitter;
+var inherits = require('inherits');
 
 inherits(Stream, EE);
-Stream.Readable = _dereq_('readable-stream/readable.js');
-Stream.Writable = _dereq_('readable-stream/writable.js');
-Stream.Duplex = _dereq_('readable-stream/duplex.js');
-Stream.Transform = _dereq_('readable-stream/transform.js');
-Stream.PassThrough = _dereq_('readable-stream/passthrough.js');
+Stream.Readable = require('readable-stream/readable.js');
+Stream.Writable = require('readable-stream/writable.js');
+Stream.Duplex = require('readable-stream/duplex.js');
+Stream.Transform = require('readable-stream/transform.js');
+Stream.PassThrough = require('readable-stream/passthrough.js');
 
 // Backwards-compat with node 0.4.x
 Stream.Stream = Stream;
@@ -4627,14 +4704,14 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":19,"inherits":20,"readable-stream/duplex.js":22,"readable-stream/passthrough.js":31,"readable-stream/readable.js":32,"readable-stream/transform.js":33,"readable-stream/writable.js":34}],36:[function(_dereq_,module,exports){
+},{"events":21,"inherits":22,"readable-stream/duplex.js":24,"readable-stream/passthrough.js":33,"readable-stream/readable.js":34,"readable-stream/transform.js":35,"readable-stream/writable.js":36}],38:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],37:[function(_dereq_,module,exports){
+},{}],39:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -5161,7 +5238,7 @@ function isPrimitive(arg) {
 }
 exports.isPrimitive = isPrimitive;
 
-exports.isBuffer = _dereq_('./support/isBuffer');
+exports.isBuffer = require('./support/isBuffer');
 
 function objectToString(o) {
   return Object.prototype.toString.call(o);
@@ -5205,7 +5282,7 @@ exports.log = function() {
  *     prototype.
  * @param {function} superCtor Constructor function to inherit prototype from.
  */
-exports.inherits = _dereq_('inherits');
+exports.inherits = require('inherits');
 
 exports._extend = function(origin, add) {
   // Don't do anything if add isn't an object
@@ -5223,12 +5300,12 @@ function hasOwnProperty(obj, prop) {
   return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-}).call(this,_dereq_("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":36,"FWaASH":21,"inherits":20}],38:[function(_dereq_,module,exports){
+}).call(this,require("FWaASH"),typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./support/isBuffer":38,"FWaASH":23,"inherits":22}],40:[function(require,module,exports){
 (function (Buffer){
-var Writable = _dereq_('readable-stream').Writable
-var inherits = _dereq_('inherits')
-var TA = _dereq_('typedarray')
+var Writable = require('readable-stream').Writable
+var inherits = require('inherits')
+var TA = require('typedarray')
 var U8 = typeof Uint8Array !== 'undefined' ? Uint8Array : TA.Uint8Array
 
 function ConcatStream(opts, cb) {
@@ -5359,14 +5436,14 @@ function u8Concat (parts) {
   return u8
 }
 
-}).call(this,_dereq_("buffer").Buffer)
-},{"buffer":16,"inherits":39,"readable-stream":48,"typedarray":49}],39:[function(_dereq_,module,exports){
-module.exports=_dereq_(20)
-},{}],40:[function(_dereq_,module,exports){
-arguments[4][23][0].apply(exports,arguments)
-},{"./_stream_readable":42,"./_stream_writable":44,"FWaASH":21,"core-util-is":45,"inherits":39}],41:[function(_dereq_,module,exports){
-arguments[4][24][0].apply(exports,arguments)
-},{"./_stream_transform":43,"core-util-is":45,"inherits":39}],42:[function(_dereq_,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"buffer":18,"inherits":41,"readable-stream":50,"typedarray":51}],41:[function(require,module,exports){
+module.exports=require(22)
+},{}],42:[function(require,module,exports){
+arguments[4][25][0].apply(exports,arguments)
+},{"./_stream_readable":44,"./_stream_writable":46,"FWaASH":23,"core-util-is":47,"inherits":41}],43:[function(require,module,exports){
+arguments[4][26][0].apply(exports,arguments)
+},{"./_stream_transform":45,"core-util-is":47,"inherits":41}],44:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -5392,17 +5469,17 @@ arguments[4][24][0].apply(exports,arguments)
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = _dereq_('isarray');
+var isArray = require('isarray');
 /*</replacement>*/
 
 
 /*<replacement>*/
-var Buffer = _dereq_('buffer').Buffer;
+var Buffer = require('buffer').Buffer;
 /*</replacement>*/
 
 Readable.ReadableState = ReadableState;
 
-var EE = _dereq_('events').EventEmitter;
+var EE = require('events').EventEmitter;
 
 /*<replacement>*/
 if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
@@ -5410,18 +5487,18 @@ if (!EE.listenerCount) EE.listenerCount = function(emitter, type) {
 };
 /*</replacement>*/
 
-var Stream = _dereq_('stream');
+var Stream = require('stream');
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 var StringDecoder;
 
 
 /*<replacement>*/
-var debug = _dereq_('util');
+var debug = require('util');
 if (debug && debug.debuglog) {
   debug = debug.debuglog('stream');
 } else {
@@ -5489,7 +5566,7 @@ function ReadableState(options, stream) {
   this.encoding = null;
   if (options.encoding) {
     if (!StringDecoder)
-      StringDecoder = _dereq_('string_decoder/').StringDecoder;
+      StringDecoder = require('string_decoder/').StringDecoder;
     this.decoder = new StringDecoder(options.encoding);
     this.encoding = options.encoding;
   }
@@ -5597,7 +5674,7 @@ function needMoreData(state) {
 // backwards compatibility.
 Readable.prototype.setEncoding = function(enc) {
   if (!StringDecoder)
-    StringDecoder = _dereq_('string_decoder/').StringDecoder;
+    StringDecoder = require('string_decoder/').StringDecoder;
   this._readableState.decoder = new StringDecoder(enc);
   this._readableState.encoding = enc;
   return this;
@@ -6313,8 +6390,8 @@ function indexOf (xs, x) {
   return -1;
 }
 
-}).call(this,_dereq_("FWaASH"))
-},{"FWaASH":21,"buffer":16,"core-util-is":45,"events":19,"inherits":39,"isarray":46,"stream":35,"string_decoder/":47,"util":15}],43:[function(_dereq_,module,exports){
+}).call(this,require("FWaASH"))
+},{"FWaASH":23,"buffer":18,"core-util-is":47,"events":21,"inherits":41,"isarray":48,"stream":37,"string_decoder/":49,"util":17}],45:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6381,11 +6458,11 @@ function indexOf (xs, x) {
 
 module.exports = Transform;
 
-var Duplex = _dereq_('./_stream_duplex');
+var Duplex = require('./_stream_duplex');
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
 util.inherits(Transform, Duplex);
@@ -6525,7 +6602,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":40,"core-util-is":45,"inherits":39}],44:[function(_dereq_,module,exports){
+},{"./_stream_duplex":42,"core-util-is":47,"inherits":41}],46:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -6555,18 +6632,18 @@ function done(stream, er) {
 module.exports = Writable;
 
 /*<replacement>*/
-var Buffer = _dereq_('buffer').Buffer;
+var Buffer = require('buffer').Buffer;
 /*</replacement>*/
 
 Writable.WritableState = WritableState;
 
 
 /*<replacement>*/
-var util = _dereq_('core-util-is');
-util.inherits = _dereq_('inherits');
+var util = require('core-util-is');
+util.inherits = require('inherits');
 /*</replacement>*/
 
-var Stream = _dereq_('stream');
+var Stream = require('stream');
 
 util.inherits(Writable, Stream);
 
@@ -6660,7 +6737,7 @@ function WritableState(options, stream) {
 }
 
 function Writable(options) {
-  var Duplex = _dereq_('./_stream_duplex');
+  var Duplex = require('./_stream_duplex');
 
   // Writable ctor is applied to Duplexes, though they're not
   // instanceof Writable, they're instanceof Readable.
@@ -7000,23 +7077,23 @@ function endWritable(stream, state, cb) {
   state.ended = true;
 }
 
-}).call(this,_dereq_("FWaASH"))
-},{"./_stream_duplex":40,"FWaASH":21,"buffer":16,"core-util-is":45,"inherits":39,"stream":35}],45:[function(_dereq_,module,exports){
-module.exports=_dereq_(28)
-},{"buffer":16}],46:[function(_dereq_,module,exports){
-module.exports=_dereq_(29)
-},{}],47:[function(_dereq_,module,exports){
-module.exports=_dereq_(30)
-},{"buffer":16}],48:[function(_dereq_,module,exports){
-exports = module.exports = _dereq_('./lib/_stream_readable.js');
-exports.Stream = _dereq_('stream');
+}).call(this,require("FWaASH"))
+},{"./_stream_duplex":42,"FWaASH":23,"buffer":18,"core-util-is":47,"inherits":41,"stream":37}],47:[function(require,module,exports){
+module.exports=require(30)
+},{"buffer":18}],48:[function(require,module,exports){
+module.exports=require(31)
+},{}],49:[function(require,module,exports){
+module.exports=require(32)
+},{"buffer":18}],50:[function(require,module,exports){
+exports = module.exports = require('./lib/_stream_readable.js');
+exports.Stream = require('stream');
 exports.Readable = exports;
-exports.Writable = _dereq_('./lib/_stream_writable.js');
-exports.Duplex = _dereq_('./lib/_stream_duplex.js');
-exports.Transform = _dereq_('./lib/_stream_transform.js');
-exports.PassThrough = _dereq_('./lib/_stream_passthrough.js');
+exports.Writable = require('./lib/_stream_writable.js');
+exports.Duplex = require('./lib/_stream_duplex.js');
+exports.Transform = require('./lib/_stream_transform.js');
+exports.PassThrough = require('./lib/_stream_passthrough.js');
 
-},{"./lib/_stream_duplex.js":40,"./lib/_stream_passthrough.js":41,"./lib/_stream_readable.js":42,"./lib/_stream_transform.js":43,"./lib/_stream_writable.js":44,"stream":35}],49:[function(_dereq_,module,exports){
+},{"./lib/_stream_duplex.js":42,"./lib/_stream_passthrough.js":43,"./lib/_stream_readable.js":44,"./lib/_stream_transform.js":45,"./lib/_stream_writable.js":46,"stream":37}],51:[function(require,module,exports){
 var undefined = (void 0); // Paranoia
 
 // Beyond this value, index getters/setters (i.e. array[0], array[1]) are so slow to
@@ -7648,10 +7725,10 @@ function packF32(v) { return packIEEE754(v, 8, 23); }
 
 }());
 
-},{}],50:[function(_dereq_,module,exports){
+},{}],52:[function(require,module,exports){
 (function (Buffer){
-var inherits = _dereq_('inherits')
-var EventEmitter = _dereq_('events').EventEmitter
+var inherits = require('inherits')
+var EventEmitter = require('events').EventEmitter
 
 module.exports = FileStream
 
@@ -7745,44 +7822,46 @@ FileStream.prototype.abort = function() {
 }
 
 inherits(FileStream, EventEmitter)
-}).call(this,_dereq_("buffer").Buffer)
-},{"buffer":16,"events":19,"inherits":51}],51:[function(_dereq_,module,exports){
-module.exports = inherits
-
-function inherits (c, p, proto) {
-  proto = proto || {}
-  var e = {}
-  ;[c.prototype, proto].forEach(function (s) {
-    Object.getOwnPropertyNames(s).forEach(function (k) {
-      e[k] = Object.getOwnPropertyDescriptor(s, k)
-    })
-  })
-  c.prototype = Object.create(p.prototype, e)
-  c.super = p
-}
-
-//function Child () {
-//  Child.super.call(this)
-//  console.error([this
-//                ,this.constructor
-//                ,this.constructor === Child
-//                ,this.constructor.super === Parent
-//                ,Object.getPrototypeOf(this) === Child.prototype
-//                ,Object.getPrototypeOf(Object.getPrototypeOf(this))
-//                 === Parent.prototype
-//                ,this instanceof Child
-//                ,this instanceof Parent])
-//}
-//function Parent () {}
-//inherits(Child, Parent)
-//new Child
-
-},{}],52:[function(_dereq_,module,exports){
+}).call(this,require("buffer").Buffer)
+},{"buffer":18,"events":21,"inherits":53}],53:[function(require,module,exports){
+module.exports=require(3)
+},{}],54:[function(require,module,exports){
 (function (Buffer){
-var through = _dereq_('through'),
-    bops = _dereq_('bops'),
-    util = _dereq_('util'),
-    tea = _dereq_('./lib/TEA');
+"use strict";
+
+var util = require ("util");
+var stream = require ("stream");
+
+module.exports.createReadStream = function (object, options){
+	return new MultiStream (object, options);
+};
+
+var MultiStream = function (object, options){
+	if (object instanceof Buffer || typeof object === "string"){
+		options = options || {};
+		stream.Readable.call (this, {
+			highWaterMark: options.highWaterMark,
+			encoding: options.encoding
+		});
+	}else{
+		stream.Readable.call (this, { objectMode: true });
+	}
+	this._object = object;
+};
+
+util.inherits (MultiStream, stream.Readable);
+
+MultiStream.prototype._read = function (){
+	this.push (this._object);
+	this._object = null;
+};
+}).call(this,require("buffer").Buffer)
+},{"buffer":18,"stream":37,"util":39}],55:[function(require,module,exports){
+(function (Buffer){
+var through = require('through'),
+    bops = require('bops'),
+    util = require('util'),
+    tea = require('./lib/TEA');
 
 
 function Encrypt(key, cb) {
@@ -7799,6 +7878,7 @@ function Encrypt(key, cb) {
       chunkSize = 3200;
 
   var write = function (data) {
+    console.log('write', data);
     // Ensure that it's a Buffer
     if (!Buffer.isBuffer(data)) {
       data = new Buffer(data)
@@ -7880,18 +7960,19 @@ function Decrypt(key, cb) {
 
 
 Decrypt.prototype.handle_chunk = function(chunk, thr, truncate) {
+  console.log('chunk', chunk);
   var out = tea.decrypt(chunk, this.key, truncate);
   thr.queue(out);
 }
 
 exports.Decrypt = Decrypt;
+exports.tea = tea;
 
 
 
-
-}).call(this,_dereq_("buffer").Buffer)
-},{"./lib/TEA":53,"bops":2,"buffer":16,"through":54,"util":37}],53:[function(_dereq_,module,exports){
-var bops = _dereq_('bops');
+}).call(this,require("buffer").Buffer)
+},{"./lib/TEA":56,"bops":4,"buffer":18,"through":57,"util":39}],56:[function(require,module,exports){
+var bops = require('bops');
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  */
 /*  Block TEA (xxtea) Tiny Encryption Algorithm implementation in JavaScript                      */
@@ -8048,9 +8129,9 @@ Tea.longToBuff = function(l, truncate) {  // convert array of longs back to stri
 
 module.exports = Tea;
 
-},{"bops":2}],54:[function(_dereq_,module,exports){
+},{"bops":4}],57:[function(require,module,exports){
 (function (process){
-var Stream = _dereq_('stream')
+var Stream = require('stream')
 
 // through
 //
@@ -8159,7 +8240,10 @@ function through (write, end, opts) {
 }
 
 
-}).call(this,_dereq_("FWaASH"))
-},{"FWaASH":21,"stream":35}]},{},[1])
-(1)
-});
+}).call(this,require("FWaASH"))
+},{"FWaASH":23,"stream":37}],58:[function(require,module,exports){
+require('../../browser')('out.text.tea', 'ODMzOWQ5M2pkb29lMmR3ZA==', {return_string: true}, function(err, data){
+    alert(data);  
+})  
+
+},{"../../browser":1}]},{},[58])

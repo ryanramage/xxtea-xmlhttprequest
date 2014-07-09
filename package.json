@@ -1,15 +1,16 @@
 {
   "name": "xxtea-xmlhttprequest",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Browser http get, decrypting the resource as a xxtea stream ",
   "main": "index.js",
   "browser": "./browser.js",
   "scripts": {
     "test": "./node_modules/.bin/tape tests/*.js",
-    "bundle": "./node_modules/.bin/browserify browser.js  --standalone xxtea  > browser.min.js",
-    "test-bundle": "./node_modules/.bin/browserify tests/launcher.js > tests/browser.js"
+    "bundle": "./node_modules/.bin/browserify browser.js  --standalone xxtea  > dist/xxteam.umd.js",
+    "test-bundle": "./node_modules/.bin/browserify tests/browserify/launcher.js > tests/browserify/bundled.js"
   },
   "dependencies": {
+    "binary-xhr": "0.0.2",
     "bops": "^0.1.1",
     "concat-stream": "^1.4.3",
     "filereader-stream": "^0.1.0",
